@@ -29,6 +29,10 @@ public class NexCalculatorPlugin extends Plugin
     private NexCalculatorPanel panel;
     private NavigationButton navButton;
     private int currentKc = 0;
+    private int startXp = -1;
+    private int accumulatedDamage = 0;
+    private boolean fightingNex = false;
+
 
     // Pattern per leggere il KC dalla chat quando killi il boss o controlli il log
     private static final Pattern NEX_KC_PATTERN = Pattern.compile("Your Nex count is: (\\d+)");
@@ -68,6 +72,10 @@ public class NexCalculatorPlugin extends Plugin
         {
             currentKc = Integer.parseInt(matcher.group(1));
             panel.updateDisplay(currentKc);
+                startXp = -1;
+                accumulatedDamage = 0;
+                fightingNex = false;
+
         }
     }
 
@@ -98,6 +106,39 @@ public class NexCalculatorPlugin extends Plugin
             });
         }
     }
+
+            @net.runelite.client.eventbus.Subscribe
+    public void onNpcChanged(net.runelite.api.events.NpcChanged npcChanged)
+    {
+        if (npcChanged.getNpc() != null && npcChanged.getNpc().getId() == 11278) // 11278 = ID di Nex
+        {
+            fightingNex = true;
+            if (startXp == -1)
+            {
+                startXp = client.getOverallExperience();
+            }
+        }
+    }
+
+    @net.runelite.client.eventbus.Subscribe
+    public void onStatChanged(net.runelite.api.events.StatChanged statChanged)
+    {
+        if (fightingNex && startXp != -1)
+        {
+            int currentXp = client.getOverallExperience();
+            int xpGained = currentXp - startXp;
+            accumulatedDamage = xpGained / 4; // 4 XP = 1 Danno in OSRS
+            
+            // Calcolo percentuale live sui 3400 HP totali di Nex
+            int liveDamagePercent = (int) (((double) accumulatedDamage / 3400.0) * 100.0);
+            
+            if (panel != null)
+            {
+                panel.updateDisplayWithLiveDamage(currentKills, liveDamagePercent);
+            }
+        }
+    }
+
 
     @Provides
     NexCalculatorConfig provideConfig(ConfigManager configManager)
