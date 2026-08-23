@@ -23,14 +23,14 @@ import java.util.regex.Pattern;
 public class NexCalculatorPlugin extends Plugin
 {
     @Inject private Client client;
-    @Inject private ClientThread clientThread; // Corretto: inserito il gestore dei thread ufficiale di RuneLite
+    @Inject private ClientThread clientThread;
     @Inject private ClientToolbar clientToolbar;
     @Inject private NexCalculatorConfig config;
 
     private NexCalculatorPanel panel;
     private NavigationButton navButton;
     private int currentKc = 0;
-    private int startXp = -1;
+    private long startXp = -1; // Modificato in long per le nuove API RuneLite
     private int accumulatedDamage = 0;
     private boolean fightingNex = false;
 
@@ -78,10 +78,8 @@ public class NexCalculatorPlugin extends Plugin
     @Subscribe
     public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded widgetLoaded)
     {
-        // 621 è l'ID del gruppo per il Collection Log nelle nuove API di RuneLite
         if (widgetLoaded.getGroupId() == 621)
         {
-            // Corretto: adesso usiamo clientThread.invoke() come richiesto dalle API moderne
             clientThread.invoke(() -> {
                 net.runelite.api.widgets.Widget titleWidget = client.getWidget(621, 2);
                 if (titleWidget != null && titleWidget.getText().contains("Nex"))
@@ -120,9 +118,9 @@ public class NexCalculatorPlugin extends Plugin
     {
         if (fightingNex && startXp != -1)
         {
-            int currentXp = client.getOverallExperience();
-            int xpGained = currentXp - startXp;
-            accumulatedDamage = xpGained / 4; // 4 XP = 1 Danno in OSRS
+            long currentXp = client.getOverallExperience(); // Modificato in long
+            long xpGained = currentXp - startXp;            // Modificato in long
+            accumulatedDamage = (int) (xpGained / 4);       // Convertito in int per memorizzare il danno
             
             int liveDamagePercent = (int) (((double) accumulatedDamage / 3400.0) * 100.0);
             
