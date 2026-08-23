@@ -92,7 +92,7 @@ public class NexCalculatorPlugin extends Plugin
                         if (matcher.find())
                         {
                             currentKc = Integer.parseInt(matcher.group(1));
-                            panel.updateDisplay(currentKc);
+                                        panel.updateDisplayWithLiveDamage(currentKc, config.damagePercentage());
                         }
                     }
                 }
@@ -113,7 +113,7 @@ public class NexCalculatorPlugin extends Plugin
         }
     }
 
-    @Subscribe
+        @Subscribe
     public void onStatChanged(net.runelite.api.events.StatChanged statChanged)
     {
         if (fightingNex && startXp != -1)
@@ -126,7 +126,7 @@ public class NexCalculatorPlugin extends Plugin
             
             if (panel != null)
             {
-                panel.updateDisplayWithLiveDamage(currentKc, liveDamagePercent);
+                panel.updateDisplayWithLiveDamage(currentKills, liveDamagePercent);
             }
         }
     }
