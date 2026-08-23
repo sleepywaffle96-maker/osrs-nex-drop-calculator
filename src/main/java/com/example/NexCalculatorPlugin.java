@@ -126,7 +126,7 @@ public class NexCalculatorPlugin extends Plugin
             
             if (panel != null)
             {
-                panel.updateDisplayWithLiveDamage(currentKills, liveDamagePercent);
+                panel.updateDisplayWithLiveDamage(currentKc, liveDamagePercent);
             }
         }
     }
