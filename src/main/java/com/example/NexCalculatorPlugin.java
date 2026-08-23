@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 
 @PluginDescriptor(
         name = "Nex Static Calculator",
-        description = "Calcola la probabilità dei drop basandosi su una percentuale di danno fissa",
+        description = "Calculates Nex drop probabilities based on static damage percentages for Trios or Masses.",
         tags = {"nex", "calculator", "drop", "trio"}
 )
 public class NexCalculatorPlugin extends Plugin
@@ -39,12 +39,7 @@ public class NexCalculatorPlugin extends Plugin
         panel = new NexCalculatorPanel(config);
 
         // Carica l'icona dalle risorse (se non c'è ancora, caricherà un'icona di fallback temporanea)
-        BufferedImage icon;
-        try {
-            icon = ImageUtil.loadImageResource(getClass(), "/nex_icon.png");
-        } catch (Exception e) {
-            icon = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        }
+       final BufferedImage icon = net.runelite.client.util.ImageUtil.loadImageResource(getClass(), "nex_icon.png");
 
         navButton = NavigationButton.builder()
                 .tooltip("Nex Calculator")
@@ -73,6 +68,34 @@ public class NexCalculatorPlugin extends Plugin
         {
             currentKc = Integer.parseInt(matcher.group(1));
             panel.updateDisplay(currentKc);
+        }
+    }
+
+            @Subscribe
+    public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded widgetLoaded)
+    {
+        // Check if the opened interface is the Collection Log
+        if (widgetLoaded.getGroupId() == net.runelite.api.widgets.WidgetID.COLLECTION_LOG_GROUP_ID)
+        {
+            client.getThread().invoke(() -> {
+                net.runelite.api.widgets.Widget titleWidget = client.getWidget(net.runelite.api.widgets.WidgetInfo.COLLECTION_LOG_TITLE);
+                if (titleWidget != null && titleWidget.getText().contains("Nex"))
+                {
+                    // Search for the Kill Count text inside the collection log interface
+                    net.runelite.api.widgets.Widget contentWidget = client.getWidget(210, 2); // Standard collection log text widget
+                    if (contentWidget != null)
+                    {
+                        String text = contentWidget.getText();
+                        Matcher matcher = Pattern.compile("Kills: (\\d+)").matcher(text);
+                        if (matcher.find())
+                        {
+                            currentKills = Integer.parseInt(matcher.group(1));
+                            panel.updateDisplay(currentKills);
+                            log.info("Nex KC synced from Collection Log: {}", currentKills);
+                        }
+                    }
+                }
+            });
         }
     }
 
