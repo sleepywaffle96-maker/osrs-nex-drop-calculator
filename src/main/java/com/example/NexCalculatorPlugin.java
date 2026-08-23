@@ -10,7 +10,6 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.ClientToolbar;
-import net.runelite.client.util.ImageUtil;
 import java.awt.image.BufferedImage;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,8 +32,6 @@ public class NexCalculatorPlugin extends Plugin
     private int accumulatedDamage = 0;
     private boolean fightingNex = false;
 
-
-    // Pattern per leggere il KC dalla chat quando killi il boss o controlli il log
     private static final Pattern NEX_KC_PATTERN = Pattern.compile("Your Nex count is: (\\d+)");
 
     @Override
@@ -42,8 +39,7 @@ public class NexCalculatorPlugin extends Plugin
     {
         panel = new NexCalculatorPanel(config);
 
-        // Carica l'icona dalle risorse (se non c'è ancora, caricherà un'icona di fallback temporanea)
-       final BufferedImage icon = net.runelite.client.util.ImageUtil.loadImageResource(getClass(), "nex_icon.png");
+        final BufferedImage icon = net.runelite.client.util.ImageUtil.loadImageResource(getClass(), "nex_icon.png");
 
         navButton = NavigationButton.builder()
                 .tooltip("Nex Calculator")
@@ -65,41 +61,39 @@ public class NexCalculatorPlugin extends Plugin
     @Subscribe
     public void onChatMessage(ChatMessage chatMessage)
     {
-        // Legge il KC direttamente quando appare il messaggio verde in chat alla morte di Nex
         String message = chatMessage.getMessage();
         Matcher matcher = NEX_KC_PATTERN.matcher(message);
         if (matcher.find())
         {
             currentKc = Integer.parseInt(matcher.group(1));
             panel.updateDisplay(currentKc);
-                startXp = -1;
-                accumulatedDamage = 0;
-                fightingNex = false;
-
+            startXp = -1;
+            accumulatedDamage = 0;
+            fightingNex = false;
         }
     }
 
-            @Subscribe
+    @Subscribe
     public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded widgetLoaded)
     {
-        // Check if the opened interface is the Collection Log
-        if (widgetLoaded.getGroupId() == net.runelite.api.widgets.WidgetID.COLLECTION_LOG_GROUP_ID)
+        // 621 è l'ID del gruppo per il Collection Log nelle nuove API di RuneLite
+        if (widgetLoaded.getGroupId() == 621)
         {
             client.getThread().invoke(() -> {
-                net.runelite.api.widgets.Widget titleWidget = client.getWidget(net.runelite.api.widgets.WidgetInfo.COLLECTION_LOG_TITLE);
+                // Sostituito WidgetInfo obsoleti recuperando direttamente il widget del titolo (621, 2)
+                net.runelite.api.widgets.Widget titleWidget = client.getWidget(621, 2);
                 if (titleWidget != null && titleWidget.getText().contains("Nex"))
                 {
-                    // Search for the Kill Count text inside the collection log interface
-                    net.runelite.api.widgets.Widget contentWidget = client.getWidget(210, 2); // Standard collection log text widget
+                    net.runelite.api.widgets.Widget contentWidget = client.getWidget(210, 2);
                     if (contentWidget != null)
                     {
                         String text = contentWidget.getText();
                         Matcher matcher = Pattern.compile("Kills: (\\d+)").matcher(text);
                         if (matcher.find())
                         {
-                            currentKills = Integer.parseInt(matcher.group(1));
-                            panel.updateDisplay(currentKills);
-                            log.info("Nex KC synced from Collection Log: {}", currentKills);
+                            // Corretto l'uso della variabile da currentKills a currentKc
+                            currentKc = Integer.parseInt(matcher.group(1));
+                            panel.updateDisplay(currentKc);
                         }
                     }
                 }
@@ -107,7 +101,7 @@ public class NexCalculatorPlugin extends Plugin
         }
     }
 
-            @net.runelite.client.eventbus.Subscribe
+    @Subscribe
     public void onNpcChanged(net.runelite.api.events.NpcChanged npcChanged)
     {
         if (npcChanged.getNpc() != null && npcChanged.getNpc().getId() == 11278) // 11278 = ID di Nex
@@ -120,7 +114,7 @@ public class NexCalculatorPlugin extends Plugin
         }
     }
 
-    @net.runelite.client.eventbus.Subscribe
+    @Subscribe
     public void onStatChanged(net.runelite.api.events.StatChanged statChanged)
     {
         if (fightingNex && startXp != -1)
@@ -129,16 +123,15 @@ public class NexCalculatorPlugin extends Plugin
             int xpGained = currentXp - startXp;
             accumulatedDamage = xpGained / 4; // 4 XP = 1 Danno in OSRS
             
-            // Calcolo percentuale live sui 3400 HP totali di Nex
             int liveDamagePercent = (int) (((double) accumulatedDamage / 3400.0) * 100.0);
             
             if (panel != null)
             {
-                panel.updateDisplayWithLiveDamage(currentKills, liveDamagePercent);
+                // Corretto l'uso della variabile da currentKills a currentKc
+                panel.updateDisplayWithLiveDamage(currentKc, liveDamagePercent);
             }
         }
     }
-
 
     @Provides
     NexCalculatorConfig provideConfig(ConfigManager configManager)
