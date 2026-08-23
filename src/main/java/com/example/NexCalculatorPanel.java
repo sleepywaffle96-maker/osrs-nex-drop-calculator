@@ -56,30 +56,58 @@ public class NexCalculatorPanel extends PluginPanel
         add(mainPanel, BorderLayout.NORTH);
     }
 
-    public void updateDisplay(int kc)
+       public void updateDisplay(int currentKills)
     {
-        kcLabel.setText("Nex Kill Count: " + kc);
-        if (kc <= 0) return;
-
-        double dmgPercent = config.damagePercentage() / 100.0;
-        double mvpBonus = config.isMvp() ? 1.10 : 1.0;
-
-        double pAny = (1.0 / 43.0) * dmgPercent * mvpBonus;
-        double pPiece = pAny * (1.0 / 5.0);
-        double pPet = (1.0 / 500.0) * dmgPercent * mvpBonus;
-
-        double chanceAny = 1.0 - Math.pow(1.0 - pAny, kc);
-        double chancePiece = 1.0 - Math.pow(1.0 - pPiece, kc);
-        double chancePet = 1.0 - Math.pow(1.0 - pPet, kc);
-
-        anyDropRow.updateChance(chanceAny);
-        helmRow.updateChance(chancePiece);
-        bodyRow.updateChance(chancePiece);
-        legsRow.updateChance(chancePiece);
-        vambsRow.updateChance(chancePiece);
-        hornRow.updateChance(chancePiece);
-        petRow.updateChance(chancePet);
+        // Se non siamo in combattimento, usa il valore manuale impostato nel menu
+        updateDisplayWithLiveDamage(currentKills, config.damagePercentage());
     }
+
+    public void updateDisplayWithLiveDamage(int currentKills, int liveDamagePercent)
+    {
+        totalKillsLabel.setText("Total Kills: " + currentKills);
+
+        expectedPanel.removeAll();
+        receivedPanel.removeAll();
+
+        // Trasformiamo la percentuale live in decimali per la formula matematica
+        double damagePercent = liveDamagePercent / 100.0;
+        int team = config.teamSize();
+
+        // Le tue formule matematiche originali aggiornate col danno in tempo reale!
+        double pHelm = (1.0 / 43.0) * (2.0 / 12.0) * damagePercent * currentKills;
+        double pBody = (1.0 / 43.0) * (2.0 / 12.0) * damagePercent * currentKills;
+        double pLegs = (1.0 / 43.0) * (2.0 / 12.0) * damagePercent * currentKills;
+        double pHorn = (1.0 / 43.0) * (2.0 / 12.0) * damagePercent * currentKills;
+        double pBow = (1.0 / 43.0) * (2.0 / 12.0) * damagePercent * currentKills;
+        double pHilt = (1.0 / 43.0) * (2.0 / 12.0) * damagePercent * currentKills;
+
+        if (config.showTorva() == NexCalculatorConfig.DisplayMode.SHOW)
+        {
+            expectedPanel.add(new DropRowPanel("Torva Full Helm", pHelm * 100.0, Color.RED));
+            expectedPanel.add(new DropRowPanel("Torva Platebody", pBody * 100.0, Color.RED));
+            expectedPanel.add(new DropRowPanel("Torva Platelegs", pLegs * 100.0, Color.RED));
+            receivedPanel.add(new DropRowPanel("Torva Pieces Received", 0.0, Color.GRAY));
+        }
+
+        if (config.showWeapon() == NexCalculatorConfig.DisplayMode.SHOW)
+        {
+            expectedPanel.add(new DropRowPanel("Zaryte Crossbow", pBow * 100.0, Color.ORANGE));
+            expectedPanel.add(new DropRowPanel("Nihil Horn", pHorn * 100.0, Color.ORANGE));
+            receivedPanel.add(new DropRowPanel("Weapons Received", 0.0, Color.GRAY));
+        }
+
+        if (config.showHilt() == NexCalculatorConfig.DisplayMode.SHOW)
+        {
+            expectedPanel.add(new DropRowPanel("Ancient Hilt", pHilt * 100.0, Color.MAGENTA));
+            receivedPanel.add(new DropRowPanel("Hilts Received", 0.0, Color.GRAY));
+        }
+
+        expectedPanel.revalidate();
+        expectedPanel.repaint();
+        receivedPanel.revalidate();
+        receivedPanel.repaint();
+    }
+
 
     private static class DropRowPanel extends JPanel
     {
