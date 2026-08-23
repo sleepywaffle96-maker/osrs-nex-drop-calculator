@@ -4,6 +4,7 @@ import com.google.inject.Provides;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -22,6 +23,7 @@ import java.util.regex.Pattern;
 public class NexCalculatorPlugin extends Plugin
 {
     @Inject private Client client;
+    @Inject private ClientThread clientThread; // Corretto: inserito il gestore dei thread ufficiale di RuneLite
     @Inject private ClientToolbar clientToolbar;
     @Inject private NexCalculatorConfig config;
 
@@ -79,8 +81,8 @@ public class NexCalculatorPlugin extends Plugin
         // 621 è l'ID del gruppo per il Collection Log nelle nuove API di RuneLite
         if (widgetLoaded.getGroupId() == 621)
         {
-            client.getThread().invoke(() -> {
-                // Sostituito WidgetInfo obsoleti recuperando direttamente il widget del titolo (621, 2)
+            // Corretto: adesso usiamo clientThread.invoke() come richiesto dalle API moderne
+            clientThread.invoke(() -> {
                 net.runelite.api.widgets.Widget titleWidget = client.getWidget(621, 2);
                 if (titleWidget != null && titleWidget.getText().contains("Nex"))
                 {
@@ -91,7 +93,6 @@ public class NexCalculatorPlugin extends Plugin
                         Matcher matcher = Pattern.compile("Kills: (\\d+)").matcher(text);
                         if (matcher.find())
                         {
-                            // Corretto l'uso della variabile da currentKills a currentKc
                             currentKc = Integer.parseInt(matcher.group(1));
                             panel.updateDisplay(currentKc);
                         }
@@ -127,7 +128,6 @@ public class NexCalculatorPlugin extends Plugin
             
             if (panel != null)
             {
-                // Corretto l'uso della variabile da currentKills a currentKc
                 panel.updateDisplayWithLiveDamage(currentKc, liveDamagePercent);
             }
         }
