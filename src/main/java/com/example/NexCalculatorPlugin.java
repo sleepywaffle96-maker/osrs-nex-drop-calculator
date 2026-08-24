@@ -35,7 +35,7 @@ public class NexCalculatorPlugin extends Plugin
     private int accumulatedDamage = 0;
     private boolean fightingNex = false;
 
-    private static final Pattern NEX_KC_PATTERN = Pattern.compile("Your Nex count is: (\\d+)");
+    private static final Pattern NEX_KC_PATTERN = Pattern.compile("Your Nex (?:kill )?count is:\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
 
     @Override
     protected void startUp() throws Exception
@@ -90,30 +90,42 @@ public class NexCalculatorPlugin extends Plugin
         }
     }
 
-    @Subscribe
-    public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded widgetLoaded)
+        @Subscribe
+    public void onScriptCallbackEvent(net.runelite.api.events.ScriptCallbackEvent event)
     {
-        if (widgetLoaded.getGroupId() == 621)
+        // Intercetta lo script ufficiale di disegno del testo interno al Collection Log
+        if (!"setCollectionLogTicks".equals(event.getEventName()))
         {
-            clientThread.invoke(() -> {
-                net.runelite.api.widgets.Widget titleWidget = client.getWidget(621, 2);
-                if (titleWidget != null && titleWidget.getText().contains("Nex"))
+            return;
+        }
+
+        // Recupera le stringhe caricate in quel secondo sullo schermo
+        String[] stringStack = client.getStringStack();
+        int stringStackSize = client.getStringStackSize();
+
+        if (stringStackSize > 0)
+        {
+            // Prende l'ultimo testo inserito nel menu dei boss
+            String rawText = stringStack[stringStackSize - 1];
+            
+            // Elimina i tag colore nascosti di JageX (es. <col=ff9040>)
+            String cleanText = net.runelite.client.util.Text.sanitizeMultilineText(rawText);
+
+            // Cerca la parola "kills:" o "count:" seguita dal numero reale
+            Matcher matcher = Pattern.compile(".*kills?:\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(cleanText);
+            if (matcher.find())
+            {
+                currentKc = Integer.parseInt(matcher.group(1));
+                
+                if (panel != null)
                 {
-                    net.runelite.api.widgets.Widget contentWidget = client.getWidget(210, 2);
-                    if (contentWidget != null)
-                    {
-                        String text = contentWidget.getText();
-                        Matcher matcher = Pattern.compile("Kills: (\\d+)").matcher(text);
-                        if (matcher.find())
-                        {
-                            currentKc = Integer.parseInt(matcher.group(1));
-                            panel.updateDisplayWithLiveDamage(currentKc, config.damagePercentage());
-                        }
-                    }
+                    panel.updateDisplayWithLiveDamage(currentKc, config.damagePercentage());
                 }
-            });
+                log.info("Nex KC successfully synced via ScriptCallback: {}", currentKc);
+            }
         }
     }
+
 
     @Subscribe
     public void onNpcChanged(net.runelite.api.events.NpcChanged npcChanged)
