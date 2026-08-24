@@ -21,7 +21,7 @@ import net.runelite.client.util.ImageUtil;
 @Slf4j
 @PluginDescriptor(
     name = "Nex Static Calculator",
-    description = "Calculates Nex drop probabilities based on damage history for Trios or Masses.",
+    description = "Calculates Nex drop probabilities based on damage and MVP history.",
     tags = {"nex", "calculator", "drop", "trio", "mass", "luck"}
 )
 public class NexCalculatorPlugin extends Plugin
@@ -46,6 +46,7 @@ public class NexCalculatorPlugin extends Plugin
     private int accumulatedDamage = 0;
     private boolean fightingNex = false;
     private int lastLiveDamagePercent = 0;
+    private boolean isMvpThisKill = false; // Flag per il bonus MVP
 
     private static final Pattern NEX_KC_PATTERN = Pattern.compile("Your Nex (?:kill )?count is:\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
 
@@ -65,7 +66,6 @@ public class NexCalculatorPlugin extends Plugin
 
         clientToolbar.addNavigation(navButton);
         
-        // Carica l'ultimo KC conosciuto salvato in locale all'avvio
         Integer savedKc = configManager.getConfiguration("nexcalculator", "current_kc", Integer.class);
         if (savedKc != null)
         {
@@ -86,22 +86,31 @@ public class NexCalculatorPlugin extends Plugin
         if (chatMessage.getType() == net.runelite.api.ChatMessageType.GAMEMESSAGE)
         {
             String message = chatMessage.getMessage();
+            
+            // Rileva se sei l'MVP della stanza (messaggio standard di RuneLite/OSRS)
+            if (message.contains("MVP:") || message.toLowerCase().contains("most valuable player"))
+            {
+                isMvpThisKill = true;
+            }
+
             Matcher matcher = NEX_KC_PATTERN.matcher(message);
             if (matcher.find())
             {
                 currentKc = Integer.parseInt(matcher.group(1));
                 
-                // SALVATAGGIO PERSISTENTE: Scrive sul PC il danno vero fatto in questa specifica kill
+                // SALVATAGGIO PERSISTENTE: Scrive sul PC sia il danno che lo stato MVP
                 configManager.setConfiguration("nexcalculator", "kill_damage_" + currentKc, lastLiveDamagePercent);
+                configManager.setConfiguration("nexcalculator", "kill_mvp_" + currentKc, isMvpThisKill);
                 configManager.setConfiguration("nexcalculator", "current_kc", currentKc);
                 
                 panel.updateDisplayWithLiveDamage(currentKc, 0);
                 
-                // Reset variabili per il boss successivo
+                // Reset totale per il boss successivo
                 startXp = -1;
                 accumulatedDamage = 0;
                 fightingNex = false;
                 lastLiveDamagePercent = 0;
+                isMvpThisKill = false;
             }
         }
     }
@@ -109,7 +118,7 @@ public class NexCalculatorPlugin extends Plugin
     @Subscribe
     public void onNpcChanged(NpcChanged npcChanged)
     {
-        if (npcChanged.getNpc() != null && npcChanged.getNpc().getId() == 11278) // 11278 = ID Nex
+        if (npcChanged.getNpc() != null && npcChanged.getNpc().getId() == 11278)
         {
             fightingNex = true;
             if (startXp == -1)
@@ -126,7 +135,7 @@ public class NexCalculatorPlugin extends Plugin
         {
             long currentXp = client.getOverallExperience();
             long xpGained = currentXp - startXp;
-            accumulatedDamage = (int) (xpGained / 4); // 4 XP = 1 Danno
+            accumulatedDamage = (int) (xpGained / 4);
             
             lastLiveDamagePercent = (int) (((double) accumulatedDamage / 3400.0) * 100.0);
             
