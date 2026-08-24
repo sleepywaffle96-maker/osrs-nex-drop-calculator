@@ -15,7 +15,7 @@ public class NexCalculatorPanel extends PluginPanel
     private final ConfigManager configManager;
     private final JLabel totalKillsLabel = new JLabel("Total Kills: 0");
     
-    // Pannelli per separare fisicamente Expected e Received
+    // Contenitori fisici per separare le due schermate
     private final JPanel expectedPanel = new JPanel();
     private final JPanel receivedPanel = new JPanel();
     private final CardLayout cardLayout = new CardLayout();
@@ -48,7 +48,7 @@ public class NexCalculatorPanel extends PluginPanel
         headerPanel.add(totalKillsLabel);
         add(headerPanel, BorderLayout.NORTH);
 
-        // LE SCHEDE SUPERIORI (TABS)
+        // LE SCHEDE SUPERIORI GENERALI (TABS)
         PluginTabs tabs = new PluginTabs();
         JPanel mainTabContent = new JPanel(new BorderLayout());
         
@@ -67,7 +67,7 @@ public class NexCalculatorPanel extends PluginPanel
         cardsContainer.add(expectedPanel, "EXPECTED");
         cardsContainer.add(receivedPanel, "RECEIVED");
 
-        // Cambia visualizzazione cliccando sui pulsanti
+        // Azioni al clic per cambiare istantaneamente la lista visualizzata
         expectedBtn.addActionListener(e -> {
             cardLayout.show(cardsContainer, "EXPECTED");
             setButtonSelected(expectedBtn, true);
@@ -114,26 +114,37 @@ public class NexCalculatorPanel extends PluginPanel
         receivedPanel.removeAll();
 
         double totalDamagePercentageAccumulated = 0.0;
+        double baseChanceSum = 0.0;
 
-        // Recupera lo storico dei danni reali salvati localmente sul computer
+        // CRONOLOGIA AVANZATA: Somma le probabilità reali e applica il bonus MVP per ogni kill passata
         for (int i = 1; i <= currentKills; i++)
         {
+            // 1. Recupera il danno salvato sul PC
             Integer savedDamage = configManager.getConfiguration("nexcalculator", "kill_damage_" + i, Integer.class);
-            if (savedDamage != null) {
-                totalDamagePercentageAccumulated += (savedDamage / 100.0);
-            } else {
-                totalDamagePercentageAccumulated += (config.damagePercentage() / 100.0);
-            }
+            double damageFraction = (savedDamage != null) ? (savedDamage / 100.0) : (config.damagePercentage() / 100.0);
+            
+            // 2. Recupera lo stato MVP salvato sul PC
+            Boolean savedMvp = configManager.getConfiguration("nexcalculator", "kill_mvp_" + i, Boolean.class);
+            boolean wasMvp = (savedMvp != null) && savedMvp;
+
+            // La chance base di Nex è 1/43. Se sei MVP, ottieni il bonus moltiplicatore del 10% (1.10)
+            double currentBaseChance = wasMvp ? (1.0 / 43.0) * 1.10 : (1.0 / 43.0);
+            
+            // Accumula il contributo di probabilità reale di questo scontro specifico
+            baseChanceSum += currentBaseChance * damageFraction;
         }
 
-        if (liveDamagePercent > 0) {
-            totalDamagePercentageAccumulated += (liveDamagePercent / 100.0);
+        // Aggiunge il danno parziale in tempo reale se la battaglia è in corso adesso
+        if (liveDamagePercent > 0)
+        {
+            double liveDamageFraction = liveDamagePercent / 100.0;
+            baseChanceSum += (1.0 / 43.0) * liveDamageFraction;
         }
 
-        // Calcoli matematici precisi per la tabella dei 7 drop di Nex
-        double baseChance = 1.0 / 43.0;
-        double overallUniqueChance = (1.0 - Math.pow(1.0 - baseChance, totalDamagePercentageAccumulated)) * 100.0;
+        // Calcolo statistico composto e preciso al millimetro basato sull'intera storia MVP e Danni
+        double overallUniqueChance = (1.0 - Math.exp(-baseChanceSum)) * 100.0;
 
+        // Suddivisione esatta dei 12 slot della tabella dei drop di Nex
         double pAny = overallUniqueChance;
         double pHelm = overallUniqueChance * (2.0 / 12.0);
         double pBody = overallUniqueChance * (2.0 / 12.0);
@@ -142,10 +153,11 @@ public class NexCalculatorPanel extends PluginPanel
         double pHorn = overallUniqueChance * (2.0 / 12.0);
         double pHilt = overallUniqueChance * (1.0 / 12.0);
         
+        // Calcolo specifico per il Pet Nexling (1 su 500 fisso e cumulativo per uccisione)
         double petBase = 1.0 / 500.0;
         double pPet = (1.0 - Math.pow(1.0 - petBase, currentKills)) * 100.0;
 
-        // SCHEDA 1: COSA APPARE SOTTO IL PULSANTE "EXPECTED"
+        // SEZIONE "EXPECTED" (BARRE GRANDI COLORATE E ICONE)
         expectedPanel.add(new DropRowPanel("Any Unique", pAny, Color.ORANGE, "nex_icon.png"));
         
         if (config.showTorva() == NexCalculatorConfig.DisplayMode.SHOW)
@@ -168,7 +180,7 @@ public class NexCalculatorPanel extends PluginPanel
         
         expectedPanel.add(new DropRowPanel("Nexling (Pet)", pPet, Color.CYAN, "nexling.png"));
 
-        // SCHEDA 2: COSA APPARE SOTTO IL PULSANTE "RECEIVED"
+        // SEZIONE "RECEIVED" (CONTATORI DROPS OTTENUTI)
         receivedPanel.add(new DropRowPanel("Any Unique Received", 0.0, Color.GRAY, "nex_icon.png"));
         if (config.showTorva() == NexCalculatorConfig.DisplayMode.SHOW)
         {
@@ -190,7 +202,7 @@ public class NexCalculatorPanel extends PluginPanel
         receivedPanel.repaint();
     }
 
-    // CLASSE INTERNA PER IL RENDERING GRAFICO AVANZATO DELLE BARRE STILE DELVE
+    // CLASSE INTERNA: DISEGNA LE BARRE SPESSE CON L'ICONA INCASTONATA A SINISTRA STILE DELVE
     private class DropRowPanel extends JPanel
     {
         private final double percentage;
@@ -213,7 +225,7 @@ public class NexCalculatorPanel extends PluginPanel
             this.itemIcon = img;
 
             setLayout(new BorderLayout());
-            setPreferredSize(new Dimension(getPreferredSize().width, 28)); // Spessore di 28px
+            setPreferredSize(new Dimension(getPreferredSize().width, 28)); // Altezza barra spessa
             setBorder(new EmptyBorder(2, 5, 2, 5));
             setBackground(new Color(40, 40, 40));
         }
@@ -225,23 +237,23 @@ public class NexCalculatorPanel extends PluginPanel
             Graphics2D g2d = (Graphics2D) g;
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Disegna lo sfondo semitrasparente che cresce
+            // 1. Disegna il riempimento semitrasparente
             int fillWidth = (int) ((getWidth() * percentage) / 100.0);
             g2d.setColor(new Color(fillColor.getRed(), fillColor.getGreen(), fillColor.getBlue(), 65));
             g2d.fillRect(0, 0, fillWidth, getHeight());
             
-            // Linea inferiore lucida di accento
+            // 2. Linea di accento inferiore lucida
             g2d.setColor(fillColor);
             g2d.fillRect(0, getHeight() - 2, fillWidth, 2);
 
-            // Disegna l'icona incastonata a sinistra
+            // 3. Disegna l'immagine dell'oggetto a sinistra
             if (itemIcon != null)
             {
                 int iconY = (getHeight() - 18) / 2;
                 g2d.drawImage(itemIcon, 5, iconY, 18, 18, null);
             }
 
-            // Disegna il testo spostato a destra per fare spazio all'immagine
+            // 4. Disegna il testo spostato a destra per non coprire l'icona
             g2d.setColor(Color.WHITE);
             g2d.setFont(new Font(getFont().getName(), Font.PLAIN, 11));
             FontMetrics metrics = g2d.getFontMetrics();
