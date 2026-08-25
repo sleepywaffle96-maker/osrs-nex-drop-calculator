@@ -312,7 +312,7 @@ public class NexCalculatorPanel extends PluginPanel
         {
             setLayout(new BorderLayout());
 
-            // Congela l'altezza del pannello a 36px fissi per evitare allungamenti
+            // Congela le dimensioni a 36px per evitare allungamenti orizzontali e verticali
             Dimension lockedSize = new Dimension(Short.MAX_VALUE, 36);
             setPreferredSize(new Dimension(getPreferredSize().width, 36));
             setMinimumSize(new Dimension(100, 36));
@@ -325,10 +325,8 @@ public class NexCalculatorPanel extends PluginPanel
         private BufferedImage loadIcon(String path)
         {
             try {
-                // Tenta di caricare l'immagine dal pacchetto risorse com.example
                 return ImageUtil.loadImageResource(NexCalculatorPanel.class, path);
             } catch (Exception e) {
-                // Se non la trova, ritorna un blocco trasparente invece di crashare
                 return null;
             }
         }
@@ -341,18 +339,14 @@ public class NexCalculatorPanel extends PluginPanel
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-            // 1. DISEGNA L'ICONA ESTERNA (Protetto da crash se il file manca)
+            // 1. DISEGNA L'ICONA A SINISTRA SULL'ASSE X = 2
             if (itemIcon != null)
             {
-                try {
-                    int iconY = (getHeight() - 18) / 2;
-                    g2d.drawImage(itemIcon, 2, iconY, 18, 18, null);
-                } catch (Exception e) {
-                    // Ignora silenziosamente l'errore grafico dell'immagine corrotta
-                }
+                int iconY = (getHeight() - 18) / 2;
+                g2d.drawImage(itemIcon, 2, iconY, 18, 18, null);
             }
 
-            // 2. STAMPA IL NUMERO INTERO ESTERNO (A fianco dell'icona)
+            // 2. STAMPA IL NUMERO INTERO ESTERNO (x = 24)
             g2d.setColor(Color.WHITE);
             g2d.setFont(new Font("Dialog", Font.BOLD, 14));
             FontMetrics metrics = g2d.getFontMetrics();
@@ -361,31 +355,28 @@ public class NexCalculatorPanel extends PluginPanel
             String outerNumberText = isExpectedMode ? String.valueOf((int) (rawProgressValue / 100.0)) : String.valueOf(receivedCount);
             g2d.drawString(outerNumberText, 24, outerTextY);
 
-            // 3. COORDINATE DEL BOX RETTANGOLARE DELLA BARRA STILE DELVE
+            // 3. COORDINATE DEL RETTANGOLO GRIGIO STILE DELVE (Inizia a x = 45)
             int barX = 45;
             int barY = 2;
             int barWidth = getWidth() - barX - 5;
             int barHeight = getHeight() - 4;
 
-            // Disegna lo sfondo interno scurissimo fisso
             g2d.setColor(new Color(20, 20, 20));
             g2d.fillRect(barX, barY, barWidth, barHeight);
 
             String innerText = "";
 
-            // --- GESTIONE CALCOLO PROGRESIVO DI CARICAMENTO ---
             if (isExpectedMode)
             {
                 double barraPercent = rawProgressValue % 100.0;
                 if (rawProgressValue > 0)
                 {
                     int fillWidth = (int) ((barWidth * Math.min(100.0, barraPercent)) / 100.0);
-                    g2d.setColor(new Color(40, 70, 120, 150)); // Blu/Azzurro Delve
+                    g2d.setColor(new Color(40, 70, 120, 150)); // Blu Delve
                     g2d.fillRect(barX, barY, fillWidth, barHeight);
                 }
                 innerText = String.format("%.1f%%", barraPercent);
             }
-            // --- GESTIONE LUCK BICOLORE ROSSO/VERDE ---
             else
             {
                 int manualSetup = manualDamageSlider.getValue();
@@ -405,33 +396,30 @@ public class NexCalculatorPanel extends PluginPanel
                 double diff = receivedCount - expectedValue;
                 int midX = barX + (barWidth / 2);
 
-                if (diff < 0) // Sfortuna -> riempie verso sinistra ed è ROSSA
+                if (diff < 0)
                 {
                     double luckFactor = Math.min(1.0, Math.abs(diff) / Math.max(1.0, expectedValue));
                     int fillWidth = (int) ((barWidth / 2) * luckFactor);
-                    g2d.setColor(new Color(150, 40, 40, 180));
+                    g2d.setColor(new Color(150, 40, 40, 180)); // Rosso sfortuna
                     g2d.fillRect(midX - fillWidth, barY, fillWidth, barHeight);
                     innerText = String.format("-%.2f", Math.abs(diff));
                 }
-                else // Fortuna -> si espande verso destra ed è VERDE
+                else
                 {
                     double luckFactor = expectedValue == 0 ? (receivedCount > 0 ? 1.0 : 0.0) : Math.min(1.0, diff / expectedValue);
                     int fillWidth = (int) ((barWidth / 2) * luckFactor);
-                    g2d.setColor(new Color(40, 130, 40, 180));
+                    g2d.setColor(new Color(40, 130, 40, 180)); // Verde fortuna
                     g2d.fillRect(midX, barY, fillWidth, barHeight);
                     innerText = String.format("+%.2f", diff);
                 }
 
-                // Linea grigia per lo Zero centrale di mezzeria
                 g2d.setColor(new Color(70, 70, 70));
                 g2d.fillRect(midX, barY, 1, barHeight);
             }
 
-            // 4. CONTORNO GRIGIO SOTTILE DELLA MATTONELLA
             g2d.setColor(new Color(90, 90, 90));
             g2d.drawRect(barX, barY, barWidth, barHeight);
 
-            // 5. TESTO PERCENTUALE/FORTUNA CENTRATO SOPRA LA BARRA
             g2d.setColor(Color.WHITE);
             int textX = barX + (barWidth - metrics.stringWidth(innerText)) / 2;
             int textY = barY + (barHeight - metrics.getHeight()) / 2 + metrics.getAscent();
