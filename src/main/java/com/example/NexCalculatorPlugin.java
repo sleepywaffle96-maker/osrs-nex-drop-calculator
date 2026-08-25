@@ -10,9 +10,7 @@ import net.runelite.api.Client;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.StatChanged;
-import net.runelite.api.events.GameTick;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.ComponentID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.Subscribe;
@@ -22,12 +20,14 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.client.callback.ClientThread;
 
 @Slf4j
 @PluginDescriptor(
-    name = "Nex Static Calculator",
-    description = "Calculates Nex drop probabilities, luck percentiles, history list and session stats.",
-    tags = {"nex", "calculator", "drop", "luck", "session", "delve", "history"}
+        name = "Nex Static Calculator",
+        description = "Calculates Nex drop probabilities, luck percentiles, history list and session stats.",
+        tags = {"nex", "calculator", "drop", "luck", "session", "delve", "history"}
 )
 public class NexCalculatorPlugin extends Plugin
 {
@@ -43,11 +43,14 @@ public class NexCalculatorPlugin extends Plugin
     @Inject
     private ConfigManager configManager;
 
+    @Inject
+    private ClientThread clientThread; // Sblocca il gestore dei thread ufficiale di RuneLite
+
     private NexCalculatorPanel panel;
     private NavigationButton navButton;
 
     private int currentKc = 0;
-    private int startingSessionKc = -1; 
+    private int startingSessionKc = -1;
     private int sessionKc = 0;
     private long startXp = -1;
     private int accumulatedDamage = 0;
@@ -61,18 +64,18 @@ public class NexCalculatorPlugin extends Plugin
     protected void startUp() throws Exception
     {
         panel = new NexCalculatorPanel(config, configManager);
-        
+
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "nex_icon.png");
 
         navButton = NavigationButton.builder()
-            .tooltip("Nex Calculator")
-            .icon(icon)
-            .priority(5)
-            .panel(panel)
-            .build();
+                .tooltip("Nex Calculator")
+                .icon(icon)
+                .priority(5)
+                .panel(panel)
+                .build();
 
         clientToolbar.addNavigation(navButton);
-        
+
         Integer savedKc = configManager.getConfiguration("nexcalculator", "current_kc", Integer.class);
         if (savedKc != null)
         {
@@ -100,12 +103,19 @@ public class NexCalculatorPlugin extends Plugin
     }
 
     @Subscribe
-    public void onGameTick(GameTick gameTick)
+    public void onWidgetLoaded(WidgetLoaded event)
     {
-        Widget collectionLogWidget = client.getWidget(ComponentID.COLLECTION_LOG_CONTAINER);
-        if (collectionLogWidget != null && !collectionLogWidget.isHidden())
+        // Intercetta l'ID del pacchetto del Collection Log
+        if (event.getGroupId() == 210)
         {
-            searchCollectionLog(collectionLogWidget);
+            // Esegue l'istruzione sul thread grafico corretto senza mandare in blocco il gioco
+            clientThread.invokeLater(() -> {
+                Widget collectionLogWidget = client.getWidget(210, 2);
+                if (collectionLogWidget != null)
+                {
+                    searchCollectionLog(collectionLogWidget);
+                }
+            });
         }
     }
 
@@ -117,7 +127,7 @@ public class NexCalculatorPlugin extends Plugin
         if (text != null && !text.isEmpty())
         {
             String cleanText = Text.sanitizeMultilineText(text);
-            
+
             if (cleanText.contains("Nex kills:"))
             {
                 Matcher matcher = Pattern.compile("Nex\\s*kills?:\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(cleanText);
@@ -133,7 +143,7 @@ public class NexCalculatorPlugin extends Plugin
                     configManager.setConfiguration("nexcalculator", "current_kc", currentKc);
                 }
             }
-            
+
             checkAndSaveDropCount(cleanText, "Torva full helm", "torva_helm");
             checkAndSaveDropCount(cleanText, "Torva platebody", "torva_body");
             checkAndSaveDropCount(cleanText, "Torva platelegs", "torva_legs");
@@ -151,7 +161,7 @@ public class NexCalculatorPlugin extends Plugin
 
         Widget[] nestedChildren = widget.getNestedChildren();
         if (nestedChildren != null) { for (Widget child : nestedChildren) searchCollectionLog(child); }
-        
+
         if (panel != null)
         {
             panel.updateDisplayWithLiveDamage(currentKc, sessionKc, 0);
@@ -178,7 +188,7 @@ public class NexCalculatorPlugin extends Plugin
         {
             String message = chatMessage.getMessage();
             String cleanMessage = Text.sanitizeMultilineText(message);
-            
+
             if (cleanMessage.contains("MVP:") || cleanMessage.toLowerCase().contains("most valuable player"))
             {
                 isMvpThisKill = true;
@@ -190,18 +200,18 @@ public class NexCalculatorPlugin extends Plugin
                 currentKc = Integer.parseInt(matcher.group(1));
                 if (startingSessionKc == -1) startingSessionKc = currentKc - 1;
                 sessionKc = currentKc - startingSessionKc;
-                
+
                 int finalDamage = (lastLiveDamagePercent > 0) ? lastLiveDamagePercent : configManager.getConfiguration("nexcalculator", "manual_damage_setup", Integer.class);
-                
+
                 configManager.setConfiguration("nexcalculator", "kill_damage_" + currentKc, finalDamage);
                 configManager.setConfiguration("nexcalculator", "kill_mvp_" + currentKc, isMvpThisKill);
                 configManager.setConfiguration("nexcalculator", "current_kc", currentKc);
-                
+
                 if (panel != null)
                 {
                     panel.updateDisplayWithLiveDamage(currentKc, sessionKc, 0);
                 }
-                
+
                 startXp = -1;
                 accumulatedDamage = 0;
                 fightingNex = false;
@@ -232,9 +242,9 @@ public class NexCalculatorPlugin extends Plugin
             long currentXp = client.getOverallExperience();
             long xpGained = currentXp - startXp;
             accumulatedDamage = (int) (xpGained / 4);
-            
+
             lastLiveDamagePercent = (int) (((double) accumulatedDamage / 3400.0) * 100.0);
-            
+
             if (panel != null)
             {
                 panel.updateDisplayWithLiveDamage(currentKc, sessionKc, lastLiveDamagePercent);
