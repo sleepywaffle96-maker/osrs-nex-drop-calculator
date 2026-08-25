@@ -25,9 +25,9 @@ import net.runelite.client.util.Text;
 
 @Slf4j
 @PluginDescriptor(
-        name = "Nex Static Calculator",
-        description = "Calculates Nex drop probabilities, luck percentiles, history list and session stats.",
-        tags = {"nex", "calculator", "drop", "luck", "session", "delve", "history"}
+    name = "Nex Static Calculator",
+    description = "Calculates Nex drop probabilities, luck percentiles, history list and session stats.",
+    tags = {"nex", "calculator", "drop", "luck", "session", "delve", "history"}
 )
 public class NexCalculatorPlugin extends Plugin
 {
@@ -47,7 +47,7 @@ public class NexCalculatorPlugin extends Plugin
     private NavigationButton navButton;
 
     private int currentKc = 0;
-    private int startingSessionKc = -1;
+    private int startingSessionKc = -1; 
     private int sessionKc = 0;
     private long startXp = -1;
     private int accumulatedDamage = 0;
@@ -61,18 +61,18 @@ public class NexCalculatorPlugin extends Plugin
     protected void startUp() throws Exception
     {
         panel = new NexCalculatorPanel(config, configManager);
-
+        
         final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "nex_icon.png");
 
         navButton = NavigationButton.builder()
-                .tooltip("Nex Calculator")
-                .icon(icon)
-                .priority(5)
-                .panel(panel)
-                .build();
+            .tooltip("Nex Calculator")
+            .icon(icon)
+            .priority(5)
+            .panel(panel)
+            .build();
 
         clientToolbar.addNavigation(navButton);
-
+        
         Integer savedKc = configManager.getConfiguration("nexcalculator", "current_kc", Integer.class);
         if (savedKc != null)
         {
@@ -117,30 +117,23 @@ public class NexCalculatorPlugin extends Plugin
         if (text != null && !text.isEmpty())
         {
             String cleanText = Text.sanitizeMultilineText(text);
-
+            
             if (cleanText.contains("Nex kills:"))
             {
                 Matcher matcher = Pattern.compile("Nex\\s*kills?:\\s*(\\d+)", Pattern.CASE_INSENSITIVE).matcher(cleanText);
                 if (matcher.find())
                 {
                     int extractedKc = Integer.parseInt(matcher.group(1));
-
                     if (startingSessionKc == -1)
                     {
                         startingSessionKc = extractedKc;
                     }
-
                     sessionKc = extractedKc - startingSessionKc;
                     currentKc = extractedKc;
                     configManager.setConfiguration("nexcalculator", "current_kc", currentKc);
-
-                    if (panel != null)
-                    {
-                        panel.updateDisplayWithLiveDamage(currentKc, sessionKc, 0);
-                    }
                 }
             }
-
+            
             checkAndSaveDropCount(cleanText, "Torva full helm", "torva_helm");
             checkAndSaveDropCount(cleanText, "Torva platebody", "torva_body");
             checkAndSaveDropCount(cleanText, "Torva platelegs", "torva_legs");
@@ -150,16 +143,18 @@ public class NexCalculatorPlugin extends Plugin
             checkAndSaveDropCount(cleanText, "Nexling", "nexling_pet");
         }
 
-        Widget[] children = widget.getNestedChildren();
-        if (children == null) children = widget.getDynamicChildren();
-        if (children == null) children = widget.getStaticChildren();
+        Widget[] staticChildren = widget.getStaticChildren();
+        if (staticChildren != null) { for (Widget child : staticChildren) searchCollectionLog(child); }
 
-        if (children != null)
+        Widget[] dynamicChildren = widget.getDynamicChildren();
+        if (dynamicChildren != null) { for (Widget child : dynamicChildren) searchCollectionLog(child); }
+
+        Widget[] nestedChildren = widget.getNestedChildren();
+        if (nestedChildren != null) { for (Widget child : nestedChildren) searchCollectionLog(child); }
+        
+        if (panel != null)
         {
-            for (Widget child : children)
-            {
-                searchCollectionLog(child);
-            }
+            panel.updateDisplayWithLiveDamage(currentKc, sessionKc, 0);
         }
     }
 
@@ -183,7 +178,7 @@ public class NexCalculatorPlugin extends Plugin
         {
             String message = chatMessage.getMessage();
             String cleanMessage = Text.sanitizeMultilineText(message);
-
+            
             if (cleanMessage.contains("MVP:") || cleanMessage.toLowerCase().contains("most valuable player"))
             {
                 isMvpThisKill = true;
@@ -195,19 +190,18 @@ public class NexCalculatorPlugin extends Plugin
                 currentKc = Integer.parseInt(matcher.group(1));
                 if (startingSessionKc == -1) startingSessionKc = currentKc - 1;
                 sessionKc = currentKc - startingSessionKc;
-
-                // Se lastLiveDamagePercent è 0 significa che non ha tracciato XP (es. login fresco), mettiamo un fallback prudente
+                
                 int finalDamage = (lastLiveDamagePercent > 0) ? lastLiveDamagePercent : configManager.getConfiguration("nexcalculator", "manual_damage_setup", Integer.class);
-
+                
                 configManager.setConfiguration("nexcalculator", "kill_damage_" + currentKc, finalDamage);
                 configManager.setConfiguration("nexcalculator", "kill_mvp_" + currentKc, isMvpThisKill);
                 configManager.setConfiguration("nexcalculator", "current_kc", currentKc);
-
+                
                 if (panel != null)
                 {
                     panel.updateDisplayWithLiveDamage(currentKc, sessionKc, 0);
                 }
-
+                
                 startXp = -1;
                 accumulatedDamage = 0;
                 fightingNex = false;
@@ -238,9 +232,9 @@ public class NexCalculatorPlugin extends Plugin
             long currentXp = client.getOverallExperience();
             long xpGained = currentXp - startXp;
             accumulatedDamage = (int) (xpGained / 4);
-
+            
             lastLiveDamagePercent = (int) (((double) accumulatedDamage / 3400.0) * 100.0);
-
+            
             if (panel != null)
             {
                 panel.updateDisplayWithLiveDamage(currentKc, sessionKc, lastLiveDamagePercent);
