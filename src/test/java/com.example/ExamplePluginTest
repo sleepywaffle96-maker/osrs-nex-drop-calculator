@@ -1,0 +1,16 @@
+package com.example;
+
+import net.runelite.client.RuneLite;
+import net.runelite.client.externalplugins.ExternalPluginManager;
+
+public class ExamplePluginTest
+{
+    public static void main(String[] args) throws Exception
+    {
+        // Carica il tuo plugin di Nex nell'ambiente di test locale
+        ExternalPluginManager.loadBuiltin(NexCalculatorPlugin.class);
+
+        // Avvia l'interfaccia ufficiale del client RuneLite
+        RuneLite.main(args);
+    }
+}
