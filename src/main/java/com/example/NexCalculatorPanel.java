@@ -200,7 +200,7 @@ public class NexCalculatorPanel extends PluginPanel
             killRow.setBackground(i % 2 == 0 ? new Color(35, 35, 35) : new Color(40, 40, 40));
 
             JLabel killTitle = new JLabel("Kill #" + i + (wasMvp ? " [MVP]" : ""));
-            killTitle.setForeground(wasMvp ? Color.ORANGE : Color.LIGHT_GRAY); // CORRETTO: Usa ORANGE al posto di GOLD
+            killTitle.setForeground(wasMvp ? Color.ORANGE : Color.LIGHT_GRAY);
             killTitle.setFont(new Font("Dialog", Font.BOLD, 12));
 
             JLabel killStats = new JLabel(String.format("Dmg: %d%% | Unique: %.2f%%", damageInt, killDropChance));
@@ -239,7 +239,7 @@ public class NexCalculatorPanel extends PluginPanel
         double rawPetAll = (currentKills * petBase) * 100.0;
         double rawPetSession = (sessionKills * petBase) * 100.0;
 
-        // EXPECTED
+        // POPOLA EXPECTED
         expectedPanel.add(new DropRowPanel("Any Unique", rawAnyAll, 1.0, Color.ORANGE, "nex_icon.png"));
         if (config.showHelm() == NexCalculatorConfig.DisplayMode.SHOW) expectedPanel.add(new DropRowPanel("Torva Full Helm", rawAnyAll, (2.0 / 12.0), Color.RED, "torva_helm.png"));
         if (config.showBody() == NexCalculatorConfig.DisplayMode.SHOW) expectedPanel.add(new DropRowPanel("Torva Platebody", rawAnyAll, (2.0 / 12.0), Color.RED, "torva_body.png"));
@@ -249,7 +249,7 @@ public class NexCalculatorPanel extends PluginPanel
         if (config.showHilt() == NexCalculatorConfig.DisplayMode.SHOW) expectedPanel.add(new DropRowPanel("Ancient Hilt", rawAnyAll, (1.0 / 12.0), Color.MAGENTA, "ancient_hilt.png"));
         if (config.showPet() == NexCalculatorConfig.DisplayMode.SHOW) expectedPanel.add(new DropRowPanel("Nexling (Pet)", rawPetAll, 1.0, Color.CYAN, "nexling.png"));
 
-        // RECEIVED
+        // POPOLA RECEIVED
         receivedPanel.add(new DropRowPanel("Any Unique", getSavedReceivedCount("any_unique"), Color.GRAY, "nex_icon.png"));
         if (config.showHelm() == NexCalculatorConfig.DisplayMode.SHOW) receivedPanel.add(new DropRowPanel("Torva Full Helm", getSavedReceivedCount("torva_helm"), Color.GRAY, "torva_helm.png"));
         if (config.showBody() == NexCalculatorConfig.DisplayMode.SHOW) receivedPanel.add(new DropRowPanel("Torva Platebody", getSavedReceivedCount("torva_body"), Color.GRAY, "torva_body.png"));
@@ -259,7 +259,7 @@ public class NexCalculatorPanel extends PluginPanel
         if (config.showHilt() == NexCalculatorConfig.DisplayMode.SHOW) receivedPanel.add(new DropRowPanel("Ancient Hilt", getSavedReceivedCount("ancient_hilt"), Color.GRAY, "ancient_hilt.png"));
         if (config.showPet() == NexCalculatorConfig.DisplayMode.SHOW) receivedPanel.add(new DropRowPanel("Nexling (Pet)", getSavedReceivedCount("nexling_pet"), Color.GRAY, "nexling.png"));
 
-        // SESSION
+        // POPOLA SESSION
         sessionExpectedPanel.add(new DropRowPanel("Any Unique", rawAnySession, 1.0, Color.ORANGE, "nex_icon.png"));
         if (config.showHelm() == NexCalculatorConfig.DisplayMode.SHOW) sessionExpectedPanel.add(new DropRowPanel("Torva Full Helm", rawAnySession, (2.0 / 12.0), Color.RED, "torva_helm.png"));
         if (config.showBody() == NexCalculatorConfig.DisplayMode.SHOW) sessionExpectedPanel.add(new DropRowPanel("Torva Platebody", rawAnySession, (2.0 / 12.0), Color.RED, "torva_body.png"));
@@ -291,7 +291,7 @@ public class NexCalculatorPanel extends PluginPanel
         public DropRowPanel(String name, double value, double weight, Color barColor, String iconPath)
         {
             this.itemName = name;
-            this.rawProgressValue = value * weight; // Forza il moltiplicatore sul peso corretto della categoria
+            this.rawProgressValue = value * weight;
             this.isExpectedMode = true;
             this.receivedCount = 0;
             this.itemIcon = loadIcon(iconPath);
@@ -312,7 +312,7 @@ public class NexCalculatorPanel extends PluginPanel
         {
             setLayout(new BorderLayout());
 
-            // CONGELA L'ALTEZZA A 36PX PER EVITARE DEFORMAZIONI GRAFICHE
+            // Congela l'altezza del pannello a 36px fissi per evitare allungamenti
             Dimension lockedSize = new Dimension(Short.MAX_VALUE, 36);
             setPreferredSize(new Dimension(getPreferredSize().width, 36));
             setMinimumSize(new Dimension(100, 36));
@@ -324,8 +324,13 @@ public class NexCalculatorPanel extends PluginPanel
 
         private BufferedImage loadIcon(String path)
         {
-            try { return ImageUtil.loadImageResource(NexCalculatorPanel.class, path); }
-            catch (Exception e) { return new BufferedImage(18, 18, BufferedImage.TYPE_INT_ARGB); }
+            try {
+                // Tenta di caricare l'immagine dal pacchetto risorse com.example
+                return ImageUtil.loadImageResource(NexCalculatorPanel.class, path);
+            } catch (Exception e) {
+                // Se non la trova, ritorna un blocco trasparente invece di crashare
+                return null;
+            }
         }
 
         @Override
@@ -336,14 +341,18 @@ public class NexCalculatorPanel extends PluginPanel
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-            // 1. DISEGNA L'ICONA A SINISTRA
+            // 1. DISEGNA L'ICONA ESTERNA (Protetto da crash se il file manca)
             if (itemIcon != null)
             {
-                int iconY = (getHeight() - 18) / 2;
-                g2d.drawImage(itemIcon, 2, iconY, 18, 18, null);
+                try {
+                    int iconY = (getHeight() - 18) / 2;
+                    g2d.drawImage(itemIcon, 2, iconY, 18, 18, null);
+                } catch (Exception e) {
+                    // Ignora silenziosamente l'errore grafico dell'immagine corrotta
+                }
             }
 
-            // 2. STAMPA IL NUMERO INTERO ESTERNO (Tra l'icona e il box)
+            // 2. STAMPA IL NUMERO INTERO ESTERNO (A fianco dell'icona)
             g2d.setColor(Color.WHITE);
             g2d.setFont(new Font("Dialog", Font.BOLD, 14));
             FontMetrics metrics = g2d.getFontMetrics();
@@ -352,30 +361,31 @@ public class NexCalculatorPanel extends PluginPanel
             String outerNumberText = isExpectedMode ? String.valueOf((int) (rawProgressValue / 100.0)) : String.valueOf(receivedCount);
             g2d.drawString(outerNumberText, 24, outerTextY);
 
-            // 3. COORDINATE DEL RETTANGOLO GRIGIO (Inizia a x = 45 per lasciare spazio al numero)
+            // 3. COORDINATE DEL BOX RETTANGOLARE DELLA BARRA STILE DELVE
             int barX = 45;
             int barY = 2;
             int barWidth = getWidth() - barX - 5;
             int barHeight = getHeight() - 4;
 
+            // Disegna lo sfondo interno scurissimo fisso
             g2d.setColor(new Color(20, 20, 20));
             g2d.fillRect(barX, barY, barWidth, barHeight);
 
             String innerText = "";
 
-            // --- DISEGNA AVANZAMENTO CICLICO (EXPECTED / SESSION) ---
+            // --- GESTIONE CALCOLO PROGRESIVO DI CARICAMENTO ---
             if (isExpectedMode)
             {
                 double barraPercent = rawProgressValue % 100.0;
                 if (rawProgressValue > 0)
                 {
                     int fillWidth = (int) ((barWidth * Math.min(100.0, barraPercent)) / 100.0);
-                    g2d.setColor(new Color(40, 70, 120, 150)); // Blu Delve
+                    g2d.setColor(new Color(40, 70, 120, 150)); // Blu/Azzurro Delve
                     g2d.fillRect(barX, barY, fillWidth, barHeight);
                 }
                 innerText = String.format("%.1f%%", barraPercent);
             }
-            // --- DISEGNA LUCK BICOLORE (RECEIVED) ---
+            // --- GESTIONE LUCK BICOLORE ROSSO/VERDE ---
             else
             {
                 int manualSetup = manualDamageSlider.getValue();
@@ -395,7 +405,7 @@ public class NexCalculatorPanel extends PluginPanel
                 double diff = receivedCount - expectedValue;
                 int midX = barX + (barWidth / 2);
 
-                if (diff < 0) // Svantaggio drop -> barra si sposta a sinistra ed è ROSSA
+                if (diff < 0) // Sfortuna -> riempie verso sinistra ed è ROSSA
                 {
                     double luckFactor = Math.min(1.0, Math.abs(diff) / Math.max(1.0, expectedValue));
                     int fillWidth = (int) ((barWidth / 2) * luckFactor);
@@ -403,7 +413,7 @@ public class NexCalculatorPanel extends PluginPanel
                     g2d.fillRect(midX - fillWidth, barY, fillWidth, barHeight);
                     innerText = String.format("-%.2f", Math.abs(diff));
                 }
-                else // Vantaggio drop -> barra si sposta a destra ed è VERDE
+                else // Fortuna -> si espande verso destra ed è VERDE
                 {
                     double luckFactor = expectedValue == 0 ? (receivedCount > 0 ? 1.0 : 0.0) : Math.min(1.0, diff / expectedValue);
                     int fillWidth = (int) ((barWidth / 2) * luckFactor);
@@ -412,16 +422,16 @@ public class NexCalculatorPanel extends PluginPanel
                     innerText = String.format("+%.2f", diff);
                 }
 
-                // Linea di mezzeria dello zero centrale
+                // Linea grigia per lo Zero centrale di mezzeria
                 g2d.setColor(new Color(70, 70, 70));
                 g2d.fillRect(midX, barY, 1, barHeight);
             }
 
-            // 4. CONTORNO BOX RETTANGOLARE GRIGIO SOTTILE
+            // 4. CONTORNO GRIGIO SOTTILE DELLA MATTONELLA
             g2d.setColor(new Color(90, 90, 90));
             g2d.drawRect(barX, barY, barWidth, barHeight);
 
-            // 5. TESTO PERCENTUALE CENTRATO ALL'INTERNO DELLA BARRA
+            // 5. TESTO PERCENTUALE/FORTUNA CENTRATO SOPRA LA BARRA
             g2d.setColor(Color.WHITE);
             int textX = barX + (barWidth - metrics.stringWidth(innerText)) / 2;
             int textY = barY + (barHeight - metrics.getHeight()) / 2 + metrics.getAscent();
